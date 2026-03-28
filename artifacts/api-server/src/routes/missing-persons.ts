@@ -14,11 +14,37 @@ function generateCaseNumber(): string {
   return `TFN-${year}-${rand}`;
 }
 
-function generateFakeEmbedding(): string {
+function hashString(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < Math.min(str.length, 4096); i++) {
+    hash = Math.imul((hash << 5) + hash, 1) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash >>> 0;
+}
+
+function seededRng(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
+}
+
+function generateDeterministicEmbedding(source: string): string {
   const dims = 128;
-  const embedding = Array.from({ length: dims }, () => (Math.random() * 2 - 1));
-  const norm = Math.sqrt(embedding.reduce((s, v) => s + v * v, 0));
-  return JSON.stringify(embedding.map((v) => v / norm));
+  const rng = seededRng(hashString(source));
+  const raw = Array.from({ length: dims }, () => rng() * 2 - 1);
+  const norm = Math.sqrt(raw.reduce((s, v) => s + v * v, 0));
+  return JSON.stringify(raw.map((v) => v / norm));
+}
+
+function generateFakeEmbedding(photoUrl?: string | null): string {
+  if (photoUrl) return generateDeterministicEmbedding(photoUrl);
+  const dims = 128;
+  const raw = Array.from({ length: dims }, () => Math.random() * 2 - 1);
+  const norm = Math.sqrt(raw.reduce((s, v) => s + v * v, 0));
+  return JSON.stringify(raw.map((v) => v / norm));
 }
 
 router.get("/", async (req, res) => {
@@ -62,7 +88,7 @@ router.get("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const body = CreateMissingPersonBody.parse(req.body);
-    const embedding = generateFakeEmbedding();
+    const embedding = generateFakeEmbedding(body.photoUrl);
 
     const [person] = await db
       .insert(missingPersonsTable)
@@ -111,7 +137,7 @@ router.put("/:id", async (req, res) => {
     };
 
     if (body.photoUrl !== undefined) {
-      updateData.faceEmbedding = generateFakeEmbedding();
+      updateData.faceEmbedding = generateFakeEmbedding(body.photoUrl);
     }
 
     const [updated] = await db

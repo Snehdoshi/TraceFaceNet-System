@@ -24,11 +24,29 @@ function getConfidence(similarity: number): "high" | "medium" | "low" {
   return "low";
 }
 
-function generateQueryEmbedding(): number[] {
+function hashString(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < Math.min(str.length, 4096); i++) {
+    hash = Math.imul((hash << 5) + hash, 1) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash >>> 0;
+}
+
+function seededRng(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
+}
+
+function generateQueryEmbedding(queryImageUrl: string): number[] {
   const dims = 128;
-  const embedding = Array.from({ length: dims }, () => (Math.random() * 2 - 1));
-  const norm = Math.sqrt(embedding.reduce((s, v) => s + v * v, 0));
-  return embedding.map((v) => v / norm);
+  const rng = seededRng(hashString(queryImageUrl));
+  const raw = Array.from({ length: dims }, () => rng() * 2 - 1);
+  const norm = Math.sqrt(raw.reduce((s, v) => s + v * v, 0));
+  return raw.map((v) => v / norm);
 }
 
 router.post("/", async (req, res) => {
@@ -42,7 +60,7 @@ router.post("/", async (req, res) => {
       .from(missingPersonsTable)
       .where(eq(missingPersonsTable.status, "active"));
 
-    const queryEmbedding = generateQueryEmbedding();
+    const queryEmbedding = generateQueryEmbedding(body.queryImageUrl);
 
     const matches: Array<{
       missingPersonId: number;
