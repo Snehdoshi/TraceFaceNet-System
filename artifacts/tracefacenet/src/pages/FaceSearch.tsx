@@ -22,7 +22,7 @@ export default function FaceSearch() {
     setIsSearching(true);
     
     searchMutation.mutate(
-      { data: { queryImageUrl: imageUrl, confidence: 0.6 } },
+      { queryImageUrl: imageUrl, confidence: 0.6 },
       {
         onSuccess: (res) => {
           setLastResult(res);

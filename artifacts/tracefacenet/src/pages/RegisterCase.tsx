@@ -43,7 +43,7 @@ export default function RegisterCase() {
       photoUrl: data.photoUrl || undefined,
     };
     
-    mutation.mutate({ data: payload }, {
+    mutation.mutate(payload, {
       onSuccess: (res) => {
         toast({
           title: "Case Registered Successfully",

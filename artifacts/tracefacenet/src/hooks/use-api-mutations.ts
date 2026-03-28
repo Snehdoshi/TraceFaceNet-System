@@ -40,7 +40,7 @@ export function useUpdatePersonMutation() {
 export function useDeletePersonMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: deleteMissingPerson,
+    mutationFn: ({ id }: { id: number }) => deleteMissingPerson(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getListMissingPersonsQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetStatsQueryKey() });
