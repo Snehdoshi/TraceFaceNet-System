@@ -1,15 +1,20 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: TraceFaceNet Missing Person Identification API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: missing-persons
+    description: Missing person records
+  - name: searches
+    description: Face search and matching
+  - name: alerts
+    description: Alert management
 paths:
   /healthz:
     get:
@@ -24,6 +29,263 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /missing-persons:
+    get:
+      operationId: listMissingPersons
+      tags: [missing-persons]
+      summary: List all missing persons
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, found, closed]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of missing persons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingPersonListResponse"
+    post:
+      operationId: createMissingPerson
+      tags: [missing-persons]
+      summary: Register a new missing person
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMissingPersonRequest"
+      responses:
+        "201":
+          description: Missing person registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingPerson"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /missing-persons/{id}:
+    get:
+      operationId: getMissingPerson
+      tags: [missing-persons]
+      summary: Get a missing person by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Missing person details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingPerson"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateMissingPerson
+      tags: [missing-persons]
+      summary: Update a missing person record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMissingPersonRequest"
+      responses:
+        "200":
+          description: Updated record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingPerson"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteMissingPerson
+      tags: [missing-persons]
+      summary: Delete a missing person record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /searches:
+    get:
+      operationId: listSearches
+      tags: [searches]
+      summary: List face search history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Search history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchListResponse"
+    post:
+      operationId: performSearch
+      tags: [searches]
+      summary: Perform face matching search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Search results with matches
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List all alerts
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, acknowledged, resolved]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertListResponse"
+    post:
+      operationId: createAlert
+      tags: [alerts]
+      summary: Create a new alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAlertRequest"
+      responses:
+        "201":
+          description: Alert created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /alerts/{id}:
+    put:
+      operationId: updateAlert
+      tags: [alerts]
+      summary: Update alert status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAlertRequest"
+      responses:
+        "200":
+          description: Alert updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [missing-persons]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +296,353 @@ components:
       required:
         - status
 
+    MissingPerson:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [male, female, other, unknown]
+        description:
+          type: string
+        lastSeenLocation:
+          type: string
+        lastSeenDate:
+          type: string
+        contactName:
+          type: string
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+        status:
+          type: string
+          enum: [active, found, closed]
+        photoUrl:
+          type: string
+          nullable: true
+        faceEmbedding:
+          type: string
+          nullable: true
+        caseNumber:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - age
+        - gender
+        - lastSeenLocation
+        - lastSeenDate
+        - contactName
+        - contactPhone
+        - status
+        - caseNumber
+        - createdAt
+        - updatedAt
+
+    CreateMissingPersonRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [male, female, other, unknown]
+        description:
+          type: string
+        lastSeenLocation:
+          type: string
+        lastSeenDate:
+          type: string
+        contactName:
+          type: string
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+        photoUrl:
+          type: string
+          nullable: true
+      required:
+        - name
+        - age
+        - gender
+        - lastSeenLocation
+        - lastSeenDate
+        - contactName
+        - contactPhone
+
+    UpdateMissingPersonRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [male, female, other, unknown]
+        description:
+          type: string
+        lastSeenLocation:
+          type: string
+        lastSeenDate:
+          type: string
+        contactName:
+          type: string
+        contactPhone:
+          type: string
+        contactEmail:
+          type: string
+        photoUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, found, closed]
+
+    MissingPersonListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MissingPerson"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required:
+        - data
+        - total
+        - limit
+        - offset
+
+    SearchRequest:
+      type: object
+      properties:
+        queryImageUrl:
+          type: string
+        location:
+          type: string
+        confidence:
+          type: number
+          description: Minimum similarity threshold (0-1)
+          default: 0.6
+      required:
+        - queryImageUrl
+
+    FaceMatch:
+      type: object
+      properties:
+        missingPersonId:
+          type: integer
+        missingPersonName:
+          type: string
+        similarity:
+          type: number
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        photoUrl:
+          type: string
+          nullable: true
+        caseNumber:
+          type: string
+        lastSeenLocation:
+          type: string
+      required:
+        - missingPersonId
+        - missingPersonName
+        - similarity
+        - confidence
+        - caseNumber
+        - lastSeenLocation
+
+    SearchResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        queryImageUrl:
+          type: string
+        location:
+          type: string
+          nullable: true
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/FaceMatch"
+        totalMatches:
+          type: integer
+        searchDurationMs:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - queryImageUrl
+        - matches
+        - totalMatches
+        - searchDurationMs
+        - createdAt
+
+    SearchListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        total:
+          type: integer
+      required:
+        - data
+        - total
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+        missingPersonId:
+          type: integer
+          nullable: true
+        missingPersonName:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [match_found, new_case, case_updated, case_closed]
+        message:
+          type: string
+        status:
+          type: string
+          enum: [pending, acknowledged, resolved]
+        similarity:
+          type: number
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        acknowledgedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - type
+        - message
+        - status
+        - createdAt
+
+    CreateAlertRequest:
+      type: object
+      properties:
+        missingPersonId:
+          type: integer
+          nullable: true
+        type:
+          type: string
+          enum: [match_found, new_case, case_updated, case_closed]
+        message:
+          type: string
+        similarity:
+          type: number
+          nullable: true
+        location:
+          type: string
+          nullable: true
+      required:
+        - type
+        - message
+
+    UpdateAlertRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, acknowledged, resolved]
+      required:
+        - status
+
+    AlertListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        total:
+          type: integer
+        unread:
+          type: integer
+      required:
+        - data
+        - total
+        - unread
+
+    StatsResponse:
+      type: object
+      properties:
+        totalCases:
+          type: integer
+        activeCases:
+          type: integer
+        foundCases:
+          type: integer
+        closedCases:
+          type: integer
+        totalSearches:
+          type: integer
+        totalAlerts:
+          type: integer
+        pendingAlerts:
+          type: integer
+        recentMatches:
+          type: integer
+      required:
+        - totalCases
+        - activeCases
+        - foundCases
+        - closedCases
+        - totalSearches
+        - totalAlerts
+        - pendingAlerts
+        - recentMatches
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+        - message

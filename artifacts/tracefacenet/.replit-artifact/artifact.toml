@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "TraceFaceNet — Missing Person Identification System"
+version = "1.0.0"
+id = "artifacts/tracefacenet"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24945
+
+[services.development]
+run = "pnpm --filter @workspace/tracefacenet run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tracefacenet", "run", "build" ]
+publicDir = "artifacts/tracefacenet/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24945"
+BASE_PATH = "/"

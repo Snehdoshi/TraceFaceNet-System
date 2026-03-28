@@ -1,0 +1,22 @@
+packages:
+  "framer-motion": "For page transitions, list animations, and smooth visual feedback"
+  "recharts": "For dashboard data visualization"
+  "date-fns": "For formatting timestamps"
+  "react-hook-form": "For robust form state management"
+  "@hookform/resolvers": "For Zod schema validation integration"
+  "clsx": "For conditional class names"
+  "tailwind-merge": "For merging tailwind classes safely"
+  "lucide-react": "For beautiful, consistent iconography"
+
+images:
+  - path: "artifacts/tracefacenet/public/images/logo.png"
+    description: "High-tech surveillance biometric face scanning reticle in neon blue on a dark background, minimal authoritative law enforcement logo, vector style"
+    aspect_ratio: "1:1"
+  - path: "artifacts/tracefacenet/public/images/cyber-bg.png"
+    description: "Dark cybernetic data grid background with faint neon blue and red nodes, subtle digital data streams, law enforcement surveillance monitor aesthetic"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using generated API hooks from @workspace/api-client-react as instructed
+  - Added custom wrapper hooks for TanStack Query to handle standardized cache invalidations
+  - Using manual Zod schemas mapped to the Orval TS interfaces for robust form validation
