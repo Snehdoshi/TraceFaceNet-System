@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, Input, Button, Badge } from "
 import { usePerformSearchMutation } from "@/hooks/use-api-mutations";
 import { useListSearches } from "@workspace/api-client-react";
 import { useState } from "react";
-import { ScanFace, Upload, Search, Target, AlertTriangle, ChevronRight, History } from "lucide-react";
+import { ScanFace, Upload, Search, Target, AlertTriangle, ChevronRight, History, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { formatDate } from "@/lib/utils";
