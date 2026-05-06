@@ -15,14 +15,14 @@ router.get("/", async (req, res) => {
     const paginated = filtered.slice(0, lim);
     const unread = all.filter((a) => a.status === "pending").length;
 
-    res.json({
+    return res.json({
       data: paginated.map(formatAlert),
       total: filtered.length,
       unread,
     });
   } catch (err) {
     req.log.error({ err }, "Failed to list alerts");
-    res.status(500).json({ error: "internal_error", message: "Failed to list alerts" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to list alerts" });
   }
 });
 
@@ -40,13 +40,13 @@ router.post("/", async (req, res) => {
       })
       .returning();
 
-    res.status(201).json(formatAlert(alert));
+    return res.status(201).json(formatAlert(alert));
   } catch (err: any) {
     if (err?.name === "ZodError") {
       return res.status(400).json({ error: "validation_error", message: err.message });
     }
     req.log.error({ err }, "Failed to create alert");
-    res.status(500).json({ error: "internal_error", message: "Failed to create alert" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to create alert" });
   }
 });
 
@@ -71,13 +71,13 @@ router.put("/:id", async (req, res) => {
       .where(eq(alertsTable.id, id))
       .returning();
 
-    res.json(formatAlert(updated));
+    return res.json(formatAlert(updated));
   } catch (err: any) {
     if (err?.name === "ZodError") {
       return res.status(400).json({ error: "validation_error", message: err.message });
     }
     req.log.error({ err }, "Failed to update alert");
-    res.status(500).json({ error: "internal_error", message: "Failed to update alert" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to update alert" });
   }
 });
 

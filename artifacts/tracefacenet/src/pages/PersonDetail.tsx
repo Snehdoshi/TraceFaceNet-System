@@ -14,7 +14,7 @@ export default function PersonDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const { data: person, isLoading } = useGetMissingPerson(id, { query: { enabled: id > 0 } });
+  const { data: person, isLoading } = useGetMissingPerson(id);
   const updateMutation = useUpdatePersonMutation();
   const deleteMutation = useDeletePersonMutation();
   

@@ -3,10 +3,12 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Users, UserPlus, ScanFace, Bell, ShieldAlert, LogOut } from "lucide-react";
 import { useGetStats } from "@workspace/api-client-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: stats } = useGetStats();
+  const { logout, username } = useAuth();
 
   const navItems = [
     { href: "/", label: "Command Center", icon: LayoutDashboard },
@@ -62,7 +64,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-border/50">
-          <button className="flex items-center w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors border border-transparent hover:border-destructive/20">
+          <button
+            type="button"
+            onClick={logout}
+            className="flex items-center w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors border border-transparent hover:border-destructive/20"
+          >
             <LogOut className="w-5 h-5 mr-3" />
             Secure Logout
           </button>
@@ -79,7 +85,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right mr-2 hidden md:block">
-              <div className="text-sm font-semibold text-foreground">Agent K. Vance</div>
+              <div className="text-sm font-semibold text-foreground">{username ? username : "Agent K. Vance"}</div>
               <div className="text-xs text-primary/80">Clearance Level 4</div>
             </div>
             <div className="w-10 h-10 rounded-full border-2 border-primary/30 p-0.5 bg-background shadow-[0_0_15px_rgba(59,130,246,0.2)]">

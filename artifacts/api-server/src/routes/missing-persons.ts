@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { createHash } from "crypto";
 import { db, missingPersonsTable, alertsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import {
@@ -14,37 +15,46 @@ function generateCaseNumber(): string {
   return `TFN-${year}-${rand}`;
 }
 
-function hashString(str: string): number {
-  let hash = 5381;
-  for (let i = 0; i < Math.min(str.length, 4096); i++) {
-    hash = Math.imul((hash << 5) + hash, 1) + str.charCodeAt(i);
-    hash |= 0;
+function isDataUrl(source: string): boolean {
+  return source.startsWith("data:");
+}
+
+function isRemoteUrl(source: string): boolean {
+  return /^https?:\/\//i.test(source);
+}
+
+async function sourceToBytes(source: string): Promise<Uint8Array> {
+  if (isDataUrl(source)) {
+    const commaIndex = source.indexOf(",");
+    const payload = commaIndex >= 0 ? source.slice(commaIndex + 1) : "";
+    return Buffer.from(payload, source.includes(";base64,") ? "base64" : "utf8");
   }
-  return hash >>> 0;
+
+  if (isRemoteUrl(source)) {
+    const response = await fetch(source);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+
+  return Buffer.from(source, "utf8");
 }
 
-function seededRng(seed: number): () => number {
-  let s = seed;
-  return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 0xffffffff;
-  };
+async function generateImageFingerprint(source: string): Promise<string> {
+  const bytes = await sourceToBytes(source);
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
-function generateDeterministicEmbedding(source: string): string {
-  const dims = 128;
-  const rng = seededRng(hashString(source));
-  const raw = Array.from({ length: dims }, () => rng() * 2 - 1);
-  const norm = Math.sqrt(raw.reduce((s, v) => s + v * v, 0));
-  return JSON.stringify(raw.map((v) => v / norm));
-}
+async function generateFaceEmbedding(photoUrl?: string | null): Promise<string | null> {
+  if (!photoUrl) return null;
 
-function generateFakeEmbedding(photoUrl?: string | null): string {
-  if (photoUrl) return generateDeterministicEmbedding(photoUrl);
-  const dims = 128;
-  const raw = Array.from({ length: dims }, () => Math.random() * 2 - 1);
-  const norm = Math.sqrt(raw.reduce((s, v) => s + v * v, 0));
-  return JSON.stringify(raw.map((v) => v / norm));
+  try {
+    return await generateImageFingerprint(photoUrl);
+  } catch {
+    return null;
+  }
 }
 
 router.get("/", async (req, res) => {
@@ -59,7 +69,7 @@ router.get("/", async (req, res) => {
     const filtered = status ? all.filter((p) => p.status === status) : all;
     const paginated = filtered.slice(off, off + lim);
 
-    res.json({
+    return res.json({
       data: paginated.map(formatPerson),
       total: filtered.length,
       limit: lim,
@@ -67,7 +77,7 @@ router.get("/", async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Failed to list missing persons");
-    res.status(500).json({ error: "internal_error", message: "Failed to list records" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to list records" });
   }
 });
 
@@ -78,17 +88,17 @@ router.get("/:id", async (req, res) => {
     if (!person) {
       return res.status(404).json({ error: "not_found", message: "Missing person not found" });
     }
-    res.json(formatPerson(person));
+    return res.json(formatPerson(person));
   } catch (err) {
     req.log.error({ err }, "Failed to get missing person");
-    res.status(500).json({ error: "internal_error", message: "Failed to get record" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to get record" });
   }
 });
 
 router.post("/", async (req, res) => {
   try {
     const body = CreateMissingPersonBody.parse(req.body);
-    const embedding = generateFakeEmbedding(body.photoUrl);
+    const embedding = await generateFaceEmbedding(body.photoUrl);
 
     const [person] = await db
       .insert(missingPersonsTable)
@@ -111,13 +121,13 @@ router.post("/", async (req, res) => {
       status: "pending",
     });
 
-    res.status(201).json(formatPerson(person));
+    return res.status(201).json(formatPerson(person));
   } catch (err: any) {
     if (err?.name === "ZodError") {
       return res.status(400).json({ error: "validation_error", message: err.message });
     }
     req.log.error({ err }, "Failed to create missing person");
-    res.status(500).json({ error: "internal_error", message: "Failed to create record" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to create record" });
   }
 });
 
@@ -137,7 +147,7 @@ router.put("/:id", async (req, res) => {
     };
 
     if (body.photoUrl !== undefined) {
-      updateData.faceEmbedding = generateFakeEmbedding(body.photoUrl);
+      updateData.faceEmbedding = await generateFaceEmbedding(body.photoUrl);
     }
 
     const [updated] = await db
@@ -162,13 +172,13 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    res.json(formatPerson(updated));
+    return res.json(formatPerson(updated));
   } catch (err: any) {
     if (err?.name === "ZodError") {
       return res.status(400).json({ error: "validation_error", message: err.message });
     }
     req.log.error({ err }, "Failed to update missing person");
-    res.status(500).json({ error: "internal_error", message: "Failed to update record" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to update record" });
   }
 });
 
@@ -180,10 +190,10 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ error: "not_found", message: "Missing person not found" });
     }
     await db.delete(missingPersonsTable).where(eq(missingPersonsTable.id, id));
-    res.json({ success: true, message: "Record deleted successfully" });
+    return res.json({ success: true, message: "Record deleted successfully" });
   } catch (err) {
     req.log.error({ err }, "Failed to delete missing person");
-    res.status(500).json({ error: "internal_error", message: "Failed to delete record" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to delete record" });
   }
 });
 

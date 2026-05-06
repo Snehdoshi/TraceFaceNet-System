@@ -16,7 +16,7 @@ import {
 export function useCreatePersonMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: createMissingPerson,
+    mutationFn: (data: Parameters<typeof createMissingPerson>[0]) => createMissingPerson(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getListMissingPersonsQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetStatsQueryKey() });
@@ -63,7 +63,7 @@ export function useUpdateAlertMutation() {
 export function usePerformSearchMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: performSearch,
+    mutationFn: (data: Parameters<typeof performSearch>[0]) => performSearch(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getListSearchesQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetStatsQueryKey() });

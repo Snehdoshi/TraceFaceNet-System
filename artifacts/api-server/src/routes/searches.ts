@@ -1,21 +1,27 @@
 import { Router, type IRouter } from "express";
+import { createHash } from "crypto";
 import { db, missingPersonsTable, searchesTable, alertsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { PerformSearchBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
+function hammingSimilarity(aHex: string, bHex: string): number {
+  const a = Buffer.from(aHex, "hex");
+  const b = Buffer.from(bHex, "hex");
+  const length = Math.min(a.length, b.length);
+  if (length === 0) return 0;
+
+  let differingBits = 0;
+  for (let i = 0; i < length; i++) {
+    let xor = a[i] ^ b[i];
+    while (xor) {
+      differingBits += xor & 1;
+      xor >>= 1;
+    }
   }
-  if (normA === 0 || normB === 0) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+
+  return Math.max(0, 1 - differingBits / (length * 8));
 }
 
 function getConfidence(similarity: number): "high" | "medium" | "low" {
@@ -24,29 +30,37 @@ function getConfidence(similarity: number): "high" | "medium" | "low" {
   return "low";
 }
 
-function hashString(str: string): number {
-  let hash = 5381;
-  for (let i = 0; i < Math.min(str.length, 4096); i++) {
-    hash = Math.imul((hash << 5) + hash, 1) + str.charCodeAt(i);
-    hash |= 0;
+async function sourceToBytes(source: string): Promise<Uint8Array> {
+  if (source.startsWith("data:")) {
+    const commaIndex = source.indexOf(",");
+    const payload = commaIndex >= 0 ? source.slice(commaIndex + 1) : "";
+    return Buffer.from(payload, source.includes(";base64,") ? "base64" : "utf8");
   }
-  return hash >>> 0;
+
+  if (/^https?:\/\//i.test(source)) {
+    const response = await fetch(source);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch query image: ${response.status} ${response.statusText}`);
+    }
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer);
+  }
+
+  return Buffer.from(source, "utf8");
 }
 
-function seededRng(seed: number): () => number {
-  let s = seed;
-  return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 0xffffffff;
-  };
+async function generateQueryFingerprint(queryImageUrl: string): Promise<string> {
+  const bytes = await sourceToBytes(queryImageUrl);
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
-function generateQueryEmbedding(queryImageUrl: string): number[] {
-  const dims = 128;
-  const rng = seededRng(hashString(queryImageUrl));
-  const raw = Array.from({ length: dims }, () => rng() * 2 - 1);
-  const norm = Math.sqrt(raw.reduce((s, v) => s + v * v, 0));
-  return raw.map((v) => v / norm);
+function normalizeStoredFingerprint(faceEmbedding: string): string {
+  const trimmed = faceEmbedding.trim();
+  if (/^[a-f0-9]{64}$/i.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return createHash("sha256").update(trimmed, "utf8").digest("hex");
 }
 
 router.post("/", async (req, res) => {
@@ -60,7 +74,7 @@ router.post("/", async (req, res) => {
       .from(missingPersonsTable)
       .where(eq(missingPersonsTable.status, "active"));
 
-    const queryEmbedding = generateQueryEmbedding(body.queryImageUrl);
+    const queryFingerprint = await generateQueryFingerprint(body.queryImageUrl);
 
     const matches: Array<{
       missingPersonId: number;
@@ -77,11 +91,8 @@ router.post("/", async (req, res) => {
 
       let similarity: number;
       try {
-        const storedEmbedding: number[] = JSON.parse(person.faceEmbedding);
-        const rawSim = cosineSimilarity(queryEmbedding, storedEmbedding);
-        similarity = Math.max(0, Math.min(1, (rawSim + 1) / 2));
-        const perturbation = (Math.random() - 0.5) * 0.2;
-        similarity = Math.max(0, Math.min(1, similarity + perturbation));
+        const storedFingerprint = normalizeStoredFingerprint(person.faceEmbedding);
+        similarity = hammingSimilarity(queryFingerprint, storedFingerprint);
       } catch {
         continue;
       }
@@ -126,7 +137,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       id: search.id,
       queryImageUrl: search.queryImageUrl,
       location: search.location ?? null,
@@ -140,7 +151,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "validation_error", message: err.message });
     }
     req.log.error({ err }, "Failed to perform search");
-    res.status(500).json({ error: "internal_error", message: "Failed to perform search" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to perform search" });
   }
 });
 
@@ -169,10 +180,10 @@ router.get("/", async (req, res) => {
       };
     });
 
-    res.json({ data: formatted, total: formatted.length });
+    return res.json({ data: formatted, total: formatted.length });
   } catch (err) {
     req.log.error({ err }, "Failed to list searches");
-    res.status(500).json({ error: "internal_error", message: "Failed to list searches" });
+    return res.status(500).json({ error: "internal_error", message: "Failed to list searches" });
   }
 });
 
