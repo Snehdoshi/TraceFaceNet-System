@@ -1,0 +1,8 @@
+[build]
+  command = "corepack pnpm --dir artifacts/tracefacenet build"
+  publish = "artifacts/tracefacenet/dist/public"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
