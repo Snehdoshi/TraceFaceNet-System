@@ -12,6 +12,11 @@ const dbPath = sqliteDbPath;
 const db = new DatabaseSync(dbPath);
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
 
+const cookieSameSite = (process.env.COOKIE_SAMESITE || 'Lax').trim();
+const cookieSecure =
+  process.env.COOKIE_SECURE === 'true' || cookieSameSite.toLowerCase() === 'none';
+const allowedOrigin = process.env.CORS_ORIGIN || null;
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS missing_persons (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,6 +104,7 @@ if (seedMissingCount === 0) {
     { name: 'John Doe', age: 32, gender: 'male', description: 'Tall, brown hair', lastSeenLocation: 'Main St', lastSeenDate: now, contactName: 'Jane Doe', contactPhone: '+1-555-000-0000', contactEmail: null, status: 'active', photoUrl: null, faceEmbedding: null, caseNumber: 'TFN-2026-100001', createdAt: now, updatedAt: now },
     { name: 'Alice Smith', age: 28, gender: 'female', description: 'Short, glasses', lastSeenLocation: '2nd Ave', lastSeenDate: now, contactName: 'Bob Smith', contactPhone: '+1-555-111-1111', contactEmail: null, status: 'found', photoUrl: null, faceEmbedding: null, caseNumber: 'TFN-2026-100002', createdAt: now, updatedAt: now },
     { name: 'Carlos Ruiz', age: 45, gender: 'male', description: 'Beard', lastSeenLocation: 'Market', lastSeenDate: now, contactName: 'Maria Ruiz', contactPhone: '+1-555-222-2222', contactEmail: null, status: 'closed', photoUrl: null, faceEmbedding: null, caseNumber: 'TFN-2026-100003', createdAt: now, updatedAt: now },
+    { name: 'Sarah Johnson', age: 16, gender: 'female', description: 'Red hair, athletic build', lastSeenLocation: 'Downtown Park', lastSeenDate: now, contactName: 'Michael Johnson', contactPhone: '+1-555-333-3333', contactEmail: null, status: 'active', photoUrl: null, faceEmbedding: null, caseNumber: 'TFN-2026-100004', createdAt: now, updatedAt: now },
   ];
 
   for (const row of initialMissing) {
@@ -128,12 +134,32 @@ function jsonResponse(res, obj, status = 200) {
   res.end(body);
 }
 
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (!origin) return;
+
+  const responseOrigin = allowedOrigin || origin;
+  res.setHeader('Access-Control-Allow-Origin', responseOrigin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Vary', 'Origin');
+}
+
+function cookieAttributes() {
+  const attributes = ['Path=/', 'HttpOnly', `SameSite=${cookieSameSite}`];
+  if (cookieSecure) {
+    attributes.push('Secure');
+  }
+  return attributes.join('; ');
+}
+
 function setCookie(res, name, value) {
-  res.setHeader('Set-Cookie', `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax`);
+  res.setHeader('Set-Cookie', `${name}=${encodeURIComponent(value)}; ${cookieAttributes()}`);
 }
 
 function clearCookie(res, name) {
-  res.setHeader('Set-Cookie', `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  res.setHeader('Set-Cookie', `${name}=; ${cookieAttributes()}; Max-Age=0`);
 }
 
 function hashPassword(password) {
@@ -273,6 +299,14 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
   const cookies = parseCookies(req.headers.cookie);
+
+  applyCors(req, res);
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
   try {
     if (pathname === '/api/healthz' && req.method === 'GET') {

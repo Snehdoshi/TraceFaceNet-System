@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { apiUrl } from "@/lib/api-url";
 
 type AuthContextValue = {
   loading: boolean;
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const loadSession = async () => {
       try {
-        const response = await fetch("/api/auth/me", {
+        const response = await fetch(apiUrl("/api/auth/me"), {
           credentials: "include",
         });
 
@@ -67,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!cleanUsername || !cleanPassword) return false;
 
-    const response = await fetch("/api/auth/login", {
+    const response = await fetch(apiUrl("/api/auth/login"), {
       method: "POST",
       credentials: "include",
       headers: {
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!cleanUsername || !cleanPassword) return false;
 
-    const response = await fetch("/api/auth/register", {
+    const response = await fetch(apiUrl("/api/auth/register"), {
       method: "POST",
       credentials: "include",
       headers: {
@@ -109,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const cleanUsername = nextUsername.trim();
     if (!cleanUsername) return null;
 
-    const response = await fetch("/api/auth/forgot-password", {
+    const response = await fetch(apiUrl("/api/auth/forgot-password"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -130,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!cleanUsername || !cleanToken || !cleanPassword) return false;
 
-    const response = await fetch("/api/auth/reset-password", {
+    const response = await fetch(apiUrl("/api/auth/reset-password"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -143,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", {
+      await fetch(apiUrl("/api/auth/logout"), {
         method: "POST",
         credentials: "include",
       });
